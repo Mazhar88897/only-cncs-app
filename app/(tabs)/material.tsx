@@ -4,24 +4,18 @@ import { useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Logo from '../../assets/images/logo.svg';
 
-const machineOptions = ['Generic 4040 Machine', 'Shapeoko Pro XL', 'X-Carve Pro', 'Onefinity CNC'];
-const spindleOptions = [
-  '65mm Makita Router',
-  'DeWalt DWP611',
-  '80mm Water-Cooled Spindle',
-  'Carbide Compact Router',
-];
+const materialOptions = ['Hard Plywood', 'Soft Plywood', 'MDF', 'Acrylic'];
+const bitOptions = ['1/4 Downcut - 2 Flute', '1/8 Upcut - 1 Flute', 'V-Bit 60 Degree', 'Ball Nose 1/4'];
 
-export default function FeedsAndSpeedsScreen() {
-  const [rememberChoice, setRememberChoice] = useState(false);
-  const [machine, setMachine] = useState(machineOptions[0]);
-  const [spindle, setSpindle] = useState(spindleOptions[0]);
-  const [isMachineModalVisible, setIsMachineModalVisible] = useState(false);
-  const [isSpindleModalVisible, setIsSpindleModalVisible] = useState(false);
+export default function MaterialScreen() {
+  const [material, setMaterial] = useState(materialOptions[0]);
+  const [bit, setBit] = useState(bitOptions[0]);
+  const [isMaterialModalVisible, setIsMaterialModalVisible] = useState(false);
+  const [isBitModalVisible, setIsBitModalVisible] = useState(false);
   const router = useRouter();
 
   const handleNext = () => {
-    router.push('/(tabs)/material');
+    router.push('/(tabs)/results');
   };
 
   const renderOption = (item: string, onSelect: (selected: string) => void) => (
@@ -33,42 +27,38 @@ export default function FeedsAndSpeedsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Logo width={180} height={70} style={styles.logo} />
-      <Text style={styles.title}>Lets get started</Text>
-      <Text style={styles.subtitle}>What CNC machine do you have?</Text>
-      <TouchableOpacity style={styles.dropdown} onPress={() => setIsMachineModalVisible(true)}>
-        <Text style={styles.dropdownText}>{machine}</Text>
+
+      <Text style={styles.subtitle}>What material are you using?</Text>
+      <TouchableOpacity style={styles.dropdown} onPress={() => setIsMaterialModalVisible(true)}>
+        <Text style={styles.dropdownText}>{material}</Text>
         <Feather name="chevron-down" size={24} color="#44C09E" />
       </TouchableOpacity>
-      <Text style={styles.subtitle}>What spindle or router are you using?</Text>
-      <TouchableOpacity style={styles.dropdown} onPress={() => setIsSpindleModalVisible(true)}>
-        <Text style={styles.dropdownText}>{spindle}</Text>
+
+      <Text style={styles.subtitle}>What bit are you using?</Text>
+      <TouchableOpacity style={styles.dropdown} onPress={() => setIsBitModalVisible(true)}>
+        <Text style={styles.dropdownText}>{bit}</Text>
         <Feather name="chevron-down" size={24} color="#44C09E" />
       </TouchableOpacity>
-      <View style={styles.rememberRow}>
-        <TouchableOpacity onPress={() => setRememberChoice(!rememberChoice)} style={styles.checkbox}>
-          {rememberChoice && <View style={styles.checkboxInner} />}
-        </TouchableOpacity>
-        <Text style={styles.rememberText}>Remember my choice</Text>
-      </View>
+
       <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>
 
-      {/* Machine Modal */}
+      {/* Material Modal */}
       <Modal
         transparent={true}
-        visible={isMachineModalVisible}
-        onRequestClose={() => setIsMachineModalVisible(false)}
+        visible={isMaterialModalVisible}
+        onRequestClose={() => setIsMaterialModalVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <FlatList
-              data={machineOptions}
+              data={materialOptions}
               keyExtractor={(item) => item}
               renderItem={({ item }) =>
                 renderOption(item, (selected) => {
-                  setMachine(selected);
-                  setIsMachineModalVisible(false);
+                  setMaterial(selected);
+                  setIsMaterialModalVisible(false);
                 })
               }
             />
@@ -76,21 +66,21 @@ export default function FeedsAndSpeedsScreen() {
         </View>
       </Modal>
 
-      {/* Spindle Modal */}
+      {/* Bit Modal */}
       <Modal
         transparent={true}
-        visible={isSpindleModalVisible}
-        onRequestClose={() => setIsSpindleModalVisible(false)}
+        visible={isBitModalVisible}
+        onRequestClose={() => setIsBitModalVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <FlatList
-              data={spindleOptions}
+              data={bitOptions}
               keyExtractor={(item) => item}
               renderItem={({ item }) =>
                 renderOption(item, (selected) => {
-                  setSpindle(selected);
-                  setIsSpindleModalVisible(false);
+                  setBit(selected);
+                  setIsBitModalVisible(false);
                 })
               }
             />
@@ -111,18 +101,14 @@ const styles = StyleSheet.create({
   logo: {
     marginBottom: 32,
   },
-  title: {
-    fontSize: 28,
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 24,
-  },
   subtitle: {
     fontSize: 20,
     color: 'white',
+    fontWeight: 'bold',
     marginBottom: 16,
     alignSelf: 'flex-start',
     width: '100%',
+    textAlign: 'center',
   },
   dropdown: {
     width: '100%',
@@ -138,31 +124,6 @@ const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 16,
     color: 'black',
-  },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginVertical: 16,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    backgroundColor: 'white',
-    borderRadius: 3,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxInner: {
-    width: 12,
-    height: 12,
-    backgroundColor: 'black',
-    borderRadius: 1,
-  },
-  rememberText: {
-    color: 'white',
-    fontSize: 16,
   },
   nextButton: {
     width: '100%',

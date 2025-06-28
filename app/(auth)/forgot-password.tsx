@@ -15,7 +15,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#363636' }}
+      style={{ flex: 1, backgroundColor: '#004146' }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <SafeAreaView style={styles.container}>
@@ -45,7 +45,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#363636',
+    backgroundColor: '#004146',
   },
   content: {
     flexGrow: 1,

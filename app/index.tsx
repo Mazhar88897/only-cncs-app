@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -18,6 +18,12 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = () => {
+    // Here you can add your login logic
+    router.replace('/(tabs)');
+  };
 
   return (
     <KeyboardAvoidingView
@@ -59,7 +65,7 @@ export default function LoginScreen() {
             <Text style={styles.rememberText}>Remember me</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.loginButton}>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
         <Link href="/(auth)/forgot-password" asChild>
