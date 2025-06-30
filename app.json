@@ -4,16 +4,19 @@
     "slug": "only-cncs-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/adapt.png",
     "scheme": "onlycncsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/images/ios.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#004146"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "assets/images/logo.svg",
+        "foregroundImage": "assets/images/adapt.png",
         "backgroundColor": "#004146"
       },
       "edgeToEdgeEnabled": true
@@ -21,21 +24,16 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/adapt.png"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/logo.svg",
-          "resizeMode": "contain",
-          "backgroundColor": "#004146"
-        }
-      ]
-    ],
+  
     "experiments": {
       "typedRoutes": true
+    },
+    "splash": {
+      "image": "./assets/images/spash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#004146"
     }
   }
 }

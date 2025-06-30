@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     backgroundColor: '#004146',
-    paddingBottom: 13
+    paddingBottom: 48,
   },
   logo: {
     marginBottom: 16,

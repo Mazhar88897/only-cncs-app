@@ -25,9 +25,9 @@ export default function HowToUseScreen() {
       showsHorizontalScrollIndicator={false}
     >
       <Logo width={180} height={70} style={styles.logo} />
-      <Text style={styles.title}>Getting Started with ONLY CNCs</Text>
+      <Text style={styles.title}>More CNC Resources</Text>
       <Text style={styles.subtitle}>
-        Learn how to make the most of your CNC learning experience.
+        Expand your CNC knowledge with these trusted resources from around the web. Whether you're a beginner or a pro, these sites and channels offer valuable tips, tutorials, and community support.
       </Text>
       <View style={styles.videoContainer}>
         <WebView
@@ -40,37 +40,32 @@ export default function HowToUseScreen() {
           originWhitelist={['*']}
         />
       </View>
-      <Text style={styles.sectionHeader}>Welcome to ONLY CNCs</Text>
-      <Text style={styles.paragraph}>
-        ONLY CNCs is your comprehensive platform for CNC knowledge and resources. 
-        Access guides, calculators, and more to help you master desktop CNC machining.
-      </Text>
-      <Text style={styles.sectionHeader}>Key Features</Text>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Feeds & Speeds Calculator</Text>
-        <Text style={styles.featureDesc}>
-          Instantly get recommended feeds and speeds for your CNC projects.
-        </Text>
+      <Text style={styles.sectionHeader}>Top CNC Resources</Text>
+      <View style={styles.resourceCard}>
+        <Text style={styles.resourceTitle}>CNC Zone (Forum)</Text>
+        <Text style={styles.resourceDesc}>The largest and most active CNC forum community online.</Text>
+        <Text style={styles.resourceLink} onPress={() => {}}>https://www.cnczone.com/</Text>
       </View>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Material Database</Text>
-        <Text style={styles.featureDesc}>
-          Browse and select from a wide range of materials with machining tips.
-        </Text>
+      <View style={styles.resourceCard}>
+        <Text style={styles.resourceTitle}>NYC CNC (YouTube)</Text>
+        <Text style={styles.resourceDesc}>High-quality CNC tutorials, shop tours, and machining tips.</Text>
+        <Text style={styles.resourceLink} onPress={() => {}}>https://www.youtube.com/user/saunixcomp</Text>
       </View>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Guides & Tutorials</Text>
-        <Text style={styles.featureDesc}>
-          Step-by-step guides to help you get started and improve your skills.
-        </Text>
+      <View style={styles.resourceCard}>
+        <Text style={styles.resourceTitle}>Winston Moy (YouTube)</Text>
+        <Text style={styles.resourceDesc}>CNC projects, reviews, and approachable guides for all levels.</Text>
+        <Text style={styles.resourceLink} onPress={() => {}}>https://www.youtube.com/user/krayvis</Text>
       </View>
-      <Text style={styles.sectionHeader}>Getting Started</Text>
-      <Text style={styles.paragraph}>
-        1. Explore the material database and guides.{'\n'}
-        2. Use the feeds & speeds calculator for your project.{'\n'}
-        3. Review tutorials for tips and best practices.{'\n'}
-        4. Reach out via "Contact Us" for more help.
-      </Text>
+      <View style={styles.resourceCard}>
+        <Text style={styles.resourceTitle}>Practical Machinist (Forum)</Text>
+        <Text style={styles.resourceDesc}>Professional machinist community with active discussions and advice.</Text>
+        <Text style={styles.resourceLink} onPress={() => {}}>https://www.practicalmachinist.com/</Text>
+      </View>
+      <View style={styles.resourceCard}>
+        <Text style={styles.resourceTitle}>CNC Cookbook (Website)</Text>
+        <Text style={styles.resourceDesc}>Extensive CNC guides, calculators, and articles for hobbyists and pros.</Text>
+        <Text style={styles.resourceLink} onPress={() => {}}>https://www.cnccookbook.com/</Text>
+      </View>
     </ScrollView>
     </View>
   );
@@ -142,5 +137,33 @@ const styles = StyleSheet.create({
   featureDesc: {
     color: '#ccc',
     fontSize: 14,
+  },
+  resourceCard: {
+    backgroundColor: '#173c3c',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  resourceTitle: {
+    color: '#44C09E',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  resourceDesc: {
+    color: '#eee',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  resourceLink: {
+    color: '#4ecdc4',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 }); 
