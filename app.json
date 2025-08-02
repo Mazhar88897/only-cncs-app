@@ -31,9 +31,14 @@
       "typedRoutes": true
     },
     "splash": {
-      "image": "./assets/images/spash.png",
+      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#004146"
+      "backgroundColor": "#004146",
+      "dark": {
+        "image": "./assets/images/logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#004146"
+      }
     }
   }
 }
