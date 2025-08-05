@@ -18,59 +18,37 @@ export default function HowToUseScreen() {
   }, [navigation]);
 
   return (
-    <View style={{backgroundColor: '#004146'}}>
+    <View style={{backgroundColor: '#004146', flex: 1}}>
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
     >
       <Logo width={180} height={70} style={styles.logo} />
-      <Text style={styles.title}>Getting Started with ONLY CNCs</Text>
+             <Text style={styles.title}>
+         <Text style={styles.titleAccent}>How to </Text>Use
+       </Text>      
       <Text style={styles.subtitle}>
-        Learn how to make the most of your CNC learning experience.
+      A quick video running through the simple steps of using this app.
+
+
       </Text>
       <View style={styles.videoContainer}>
         <WebView
           style={styles.webview}
           containerStyle={{ backgroundColor: 'transparent' }}
-          source={{ uri: 'https://www.youtube.com/embed/bJsaR9-h26Y' }}
+          source={{ uri: 'https://www.youtube.com/embed/9PdPAza1zEg' }}
           allowsFullscreenVideo
           javaScriptEnabled
           domStorageEnabled
           originWhitelist={['*']}
         />
       </View>
-      <Text style={styles.sectionHeader}>Welcome to ONLY CNCs</Text>
+      <Text style={styles.sectionHeader}>What is <Text style={styles.titleAccent}>OnlyCNCs?</Text></Text>
       <Text style={styles.paragraph}>
-        ONLY CNCs is your comprehensive platform for CNC knowledge and resources. 
-        Access guides, calculators, and more to help you master desktop CNC machining.
-      </Text>
-      <Text style={styles.sectionHeader}>Key Features</Text>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Feeds & Speeds Calculator</Text>
-        <Text style={styles.featureDesc}>
-          Instantly get recommended feeds and speeds for your CNC projects.
-        </Text>
-      </View>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Material Database</Text>
-        <Text style={styles.featureDesc}>
-          Browse and select from a wide range of materials with machining tips.
-        </Text>
-      </View>
-      <View style={styles.featureBox}>
-        <Text style={styles.featureTitle}>Guides & Tutorials</Text>
-        <Text style={styles.featureDesc}>
-          Step-by-step guides to help you get started and improve your skills.
-        </Text>
-      </View>
-      <Text style={styles.sectionHeader}>Getting Started</Text>
-      <Text style={styles.paragraph}>
-        1. Explore the material database and guides.{'\n'}
-        2. Use the feeds & speeds calculator for your project.{'\n'}
-        3. Review tutorials for tips and best practices.{'\n'}
-        4. Reach out via "Contact Us" for more help.
-      </Text>
+      Frustrated with poor material with breaking bits, ruining stock, and time wasted on unreliable feeds and speeds charts, we built the ultimate CNC machining calculator. Whether you're cutting for fun, profit, or both, we believe you deserve pro-level results without needing a machining degree. Built for hobbyists, refined for precision.
+      </Text>      
+    
     </ScrollView>
     </View>
   );
@@ -84,17 +62,20 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   logo: { marginBottom: 16, alignSelf: 'center' },
-  title: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
+     title: {
+     color: 'white',
+     fontSize: 24,
+     fontWeight: 'bold',
+     marginBottom: 4,
+     textAlign: 'center',
+   },
+   titleAccent: {
+     color: '#03BFB5',
+   },
   subtitle: {
     color: '#ccc',
-    fontSize: 16,
-    marginBottom: 16,
+    fontSize: 14,
+    marginBottom: 20,
     textAlign: 'center',
   },
   videoContainer: {

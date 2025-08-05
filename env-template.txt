@@ -1,0 +1,6 @@
+# API Configuration
+EXPO_PUBLIC_BASE_URL=https://backend.smartcnc.site/api
+
+# Add other environment variables as needed
+# EXPO_PUBLIC_API_KEY=your_api_key_here
+# EXPO_PUBLIC_ENVIRONMENT=development 
