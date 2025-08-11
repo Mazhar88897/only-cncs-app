@@ -1,18 +1,28 @@
 import { useNavigation } from 'expo-router';
 import { useLayoutEffect } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Logo from '../../assets/images/logo.svg';
-import CustomHeading from '../../components/CustomHeading';
+import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ReportIssueButton from '../../components/ReportIssueButton';
 import ResourceCard from '../../components/ResourceCard';
 
 const ACCENT = '#03BFB5';
 
 export default function MoreCNCResourcesScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerStyle: { backgroundColor: '#004146', elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
+      headerStyle: { 
+        backgroundColor: '#004146', 
+        elevation: 0, 
+        ...Platform.select({
+          ios: { shadowOpacity: 0 },
+          android: { elevation: 0 },
+          web: { boxShadow: 'none' }
+        }),
+        borderBottomWidth: 0 
+      },
     });
   }, [navigation]);
 
@@ -23,17 +33,22 @@ export default function MoreCNCResourcesScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(40, insets.bottom + 40) }
+        ]}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
       >
-        <Logo width={180} height={70} style={styles.logo} />
-        <CustomHeading
-          color="white"
-          heading1="More CNC "
-          heading2="Resources"
-          subheading="A selection of great CNC resources to purchase from and excellent CNC related channels."
-        />
+        {/* More CNC Resources Section */}
+        <View style={styles.section}>
+          <Text style={styles.mainHeading}>
+            More CNC <Text style={styles.accentText}>Resources</Text>
+          </Text>
+          <Text style={styles.mainSubheading}>
+            A selection of great CNC resources to purchase from and excellent CNC related channels.
+          </Text>
+        </View>
 
         {/* Welcome Section */}
         <View style={styles.section}>
@@ -41,16 +56,13 @@ export default function MoreCNCResourcesScreen() {
             Welcome to <Text style={styles.accentText}>CNCs Only</Text>
           </Text>
           <Text style={styles.welcomeText}>
-            Frustrated with poor material with breaking bits, ruining stock, and time wasted on unreliable feeds and
-            speeds charts, we built the ultimate CNC machining calculator. Whether you're cutting for fun, profit, or
-            both, we believe you deserve pro-level results without needing a machining degree. Built for hobbyists,
-            refined for precision.
+            Frustrated with poor material with breaking bits, ruining stock, and time wasted on unreliable feeds and speeds charts, we built the ultimate CNC machining calculator. Whether you&apos;re cutting for fun, profit, or both, we believe you deserve pro-level results without needing a machining degree. Built for hobbyists, refined for precision.
           </Text>
         </View>
 
         {/* Mission Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
+          <Text style={styles.missionTitle}>
             Our <Text style={styles.accentText}>Mission</Text>
           </Text>
           <Text style={styles.missionText}>
@@ -61,12 +73,12 @@ export default function MoreCNCResourcesScreen() {
 
         {/* Stores and Resources Section */}
         <View style={styles.section}>
-          <CustomHeading
-            color="white"
-            heading1="Stores and resource "
-            heading2="platforms"
-            subheading="A selection of great CNC resources to purchase from and excellent CNC related channels."
-          />
+          <Text style={styles.storesHeading}>
+            Stores and resource <Text style={styles.accentText}>platforms</Text>
+          </Text>
+          <Text style={styles.storesSubheading}>
+            A selection of great CNC resources to purchase from and excellent CNC related channels.
+          </Text>
 
           <View style={styles.cardsContainer}>
             <ResourceCard
@@ -152,6 +164,11 @@ export default function MoreCNCResourcesScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        
+        {/* Report Issue Button - Inline within content */}
+        <View style={styles.reportButtonContainer}>
+          <ReportIssueButton absolute={false} />
+        </View>
       </ScrollView>
     </View>
   );
@@ -163,39 +180,67 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  logo: { 
-    marginBottom: 16, 
-    alignSelf: 'center', 
-    marginTop: 16 
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 48,
   },
   section: {
-    marginBottom: 30,
+    marginBottom: 64,
+    alignItems: 'flex-start',
   },
-  welcomeTitle: {
+  mainHeading: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 16,
     textAlign: 'center',
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  mainSubheading: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    lineHeight: 22,
+    alignSelf: 'center',
+    marginBottom: 48,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+    textAlign: 'left',
+    lineHeight: 28,
   },
   welcomeText: {
     fontSize: 16,
     color: 'white',
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: 20,
+    lineHeight: 22,
+    textAlign: 'left',
   },
-  sectionTitle: {
+  missionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: 'white',
     marginBottom: 8,
   },
+  storesHeading: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  storesSubheading: {
+    fontSize: 16,
+    color: 'white',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+
   missionText: {
     fontSize: 16,
+    fontWeight: '600',
     color: 'white',
     lineHeight: 22,
   },
@@ -206,24 +251,30 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   youtubeTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   channelList: {
     marginTop: 16,
   },
   channelItem: {
     fontSize: 16,
+    fontWeight: '600',
     color: 'white',
-    marginBottom: 12,
+    marginBottom: 8,
     lineHeight: 22,
     paddingHorizontal: 10,
   },
   linkText: {
     color: ACCENT,
     textDecorationLine: 'underline',
+  },
+  reportButtonContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+    width: '100%',
   },
 }); 

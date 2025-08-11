@@ -1,8 +1,9 @@
 import { useNavigation } from 'expo-router';
 import { useLayoutEffect } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import Logo from '../../assets/images/logo.svg';
+import ReportIssueButton from '../../components/ReportIssueButton';
 
 const VIDEO_WIDTH = Dimensions.get('window').width - 48;
 const VIDEO_HEIGHT = VIDEO_WIDTH * 9 / 16;
@@ -10,21 +11,34 @@ const ACCENT = '#004146';
 
 export default function HowToUseScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerStyle: { backgroundColor: '#004146', elevation: 0, shadowOpacity: 0, borderBottomWidth: 0 },
+      headerStyle: { 
+        backgroundColor: '#004146', 
+        elevation: 0, 
+        ...Platform.select({
+          ios: { shadowOpacity: 0 },
+          android: { elevation: 0 },
+          web: { boxShadow: 'none' }
+        }),
+        borderBottomWidth: 0 
+      },
     });
   }, [navigation]);
 
   return (
     <View style={{backgroundColor: '#004146', flex: 1}}>
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: Math.max(48, insets.bottom + 48) }
+      ]}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
     >
-      <Logo width={180} height={70} style={styles.logo} />
+      
              <Text style={styles.title}>
          <Text style={styles.titleAccent}>How to </Text>Use
        </Text>      
@@ -44,12 +58,10 @@ export default function HowToUseScreen() {
           originWhitelist={['*']}
         />
       </View>
-      <Text style={styles.sectionHeader}>What is <Text style={styles.titleAccent}>OnlyCNCs?</Text></Text>
-      <Text style={styles.paragraph}>
-      Frustrated with poor material with breaking bits, ruining stock, and time wasted on unreliable feeds and speeds charts, we built the ultimate CNC machining calculator. Whether you're cutting for fun, profit, or both, we believe you deserve pro-level results without needing a machining degree. Built for hobbyists, refined for precision.
-      </Text>      
-    
     </ScrollView>
+    
+    {/* Report Issue Button - Absolutely positioned */}
+    <ReportIssueButton />
     </View>
   );
 }
@@ -59,24 +71,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#004146', 
     alignItems: 'center', 
     padding: 24,
-    paddingBottom: 48,
   },
   logo: { marginBottom: 16, alignSelf: 'center' },
      title: {
      color: 'white',
      fontSize: 24,
      fontWeight: 'bold',
-     marginBottom: 4,
+     marginBottom: 10,
      textAlign: 'center',
+     marginTop: 20,
    },
    titleAccent: {
      color: '#03BFB5',
    },
   subtitle: {
-    color: '#ccc',
+    color: '#ffffff',
     fontSize: 14,
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   videoContainer: {
     width: VIDEO_WIDTH,
@@ -118,10 +130,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  featureDesc: {
+  featureText: {
     color: '#ccc',
     fontSize: 14,
+    lineHeight: 20,
   },
 }); 

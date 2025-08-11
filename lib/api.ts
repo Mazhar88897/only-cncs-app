@@ -84,4 +84,29 @@ export const api = {
     apiRequest(endpoint, {
       method: 'DELETE',
     }),
+
+  // Auth-specific functions
+  forgotPasswordEmail: (email: string) => 
+    apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyOtp: (email: string, otp: string) => 
+    apiRequest('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+
+  signupVerifyOtp: (email: string, otp: string) => 
+    apiRequest('/auth/signup/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+
+  resetPassword: (newPassword: string, resetToken: string) => 
+    apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ newPassword, resetToken }),
+    }),
 }; 

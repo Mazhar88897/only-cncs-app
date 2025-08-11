@@ -1,32 +1,37 @@
-import Logo from '@/assets/images/logo.svg';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Link, useRouter } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
 import { api } from '../../lib/api';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
-  const [remember, setRemember] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
+  const { toast, showSuccess, showError, hideToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   // Check if user is already logged in on component mount
   useEffect(() => {
@@ -93,21 +98,15 @@ export default function LoginScreen() {
         console.log('Stored token:', data.token);
         
         // Show success message
-        Alert.alert(
-          'Success!',
-          'Login successful!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reset form
-                setFormData({ email: '', password: '' });
-                // Navigate to main app
-                router.replace('/(tabs)');
-              },
-            },
-          ]
-        );
+        showSuccess('Login successful!');
+        
+        // Reset form
+        setFormData({ email: '', password: '' });
+        
+        // Navigate to main app after a short delay
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 1000);
       } catch (storageError) {
         console.error('Error storing user data:', storageError);
         setError('Error saving login data. Please try again.');
@@ -119,97 +118,127 @@ export default function LoginScreen() {
     }
   };
 
+  const handleCancel = () => {
+    router.back();
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoidingContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Logo width={180} height={70} style={styles.logo} />
-        <Text style={styles.title1}>
-        Dial in your desktop CNC
-       
-        </Text>
-                 <Text style={styles.title2}>  Easier cutting starts here </Text> 
-        <View style={{ width: 320}}>
-          <View style={styles.accountPrompt}>
-           <Text style={styles.accountPromptText}>Click here to </Text>
-           <Link href="/(auth)/create-account" asChild>
-             <TouchableOpacity>
-               <Text style={styles.createAccountLink}>create an account</Text>
-             </TouchableOpacity>
-           </Link>
-         </View>
-         
-         <Text style={styles.loginInstruction}>Already have an account? Log in below.</Text>
-         </View> 
-         
-         {error ? (
-           <View style={styles.errorContainer}>
-             <Text style={styles.errorText}>{error}</Text>
-           </View>
-         ) : null}
-
-         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email address"
-            placeholderTextColor="#888"
-            value={formData.email}
-            onChangeText={(value) => handleChange('email', value)}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            editable={!isLoading}
+      <ScrollView contentContainerStyle={[
+        styles.container,
+        { paddingTop: Math.max(24, insets.top + 24) } // Add safe area padding to container
+      ]}>
+        {/* Logo in top-left */}
+        <View style={[
+          styles.logoContainer,
+          { top: Math.max(24, insets.top + 24) } // Apply safe area insets dynamically
+        ]}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
           />
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Password"
-              placeholderTextColor="#888"
-              value={formData.password}
-              onChangeText={(value) => handleChange('password', value)}
-              secureTextEntry={!isPasswordVisible}
-              editable={!isLoading}
-            />
-            <TouchableOpacity 
-              onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-              disabled={isLoading}
-            >
-              <Feather name={isPasswordVisible ? 'eye-off' : 'eye'} size={24} color="#888" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.rememberRow}>
-            <TouchableOpacity 
-              onPress={() => setRemember(!remember)} 
-              style={styles.checkbox}
-              disabled={isLoading}
-            >
-              {remember && <View style={styles.checkboxInner} />}
-            </TouchableOpacity>
-            <Text style={styles.rememberText}>Remember me</Text>
+        </View>
+
+        {/* Main content centered */}
+        <View style={styles.contentContainer}>
+          <View style={styles.formCard}>
+            <Text style={styles.title}>Sign in to OnlyCNCs</Text>
+            
+            <View style={styles.accountPrompt}>
+              <Text style={styles.accountPromptText}>Click here to </Text>
+              <Link href="/(auth)/create-account" asChild>
+                <TouchableOpacity>
+                  <Text style={styles.createAccountLink}>create an account</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+            
+            <Text style={styles.subtitle}>Already have an account? Log in below.</Text>
+            
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Email:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="#888"
+                value={formData.email}
+                onChangeText={(value) => handleChange('email', value)}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={!isLoading}
+              />
+              
+              <Text style={styles.inputLabel}>Password:</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#888"
+                  value={formData.password}
+                  onChangeText={(value) => handleChange('password', value)}
+                  secureTextEntry={!isPasswordVisible}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  disabled={isLoading}
+                >
+                  <Feather name={isPasswordVisible ? 'eye-off' : 'eye'} size={24} color="#888" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.forgotPasswordContainer}>
+              <Link href="/(auth)/forgot-password" asChild>
+                <TouchableOpacity>
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+            
+            {/* Action buttons side by side */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={handleCancel}
+                disabled={isLoading}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.signInButton, isLoading && styles.buttonDisabled]} 
+                onPress={handleLogin}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#0f766e" size="small" />
+                ) : (
+                  <Text style={styles.signInButtonText}>Sign In</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-        
-        <TouchableOpacity 
-          style={[styles.loginButton, isLoading && styles.buttonDisabled]} 
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
-        <View style={{width: 320, alignItems: 'flex-end'}}>
-        <Link href="/(auth)/forgot-password" asChild>
-          <TouchableOpacity style={styles.forgotPasswordButton}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </Link>
-        </View>
-        
       </ScrollView>
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onHide={hideToast}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -221,149 +250,149 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 24, // Keep horizontal padding, remove vertical padding
+  },
+  logoContainer: {
+    position: 'absolute',
+    top: 24, // Base margin top
+    left: 0,
     padding: 24,
   },
   logo: {
-    alignItems: 'center',
+    width: 120,
+    height: 60,
+  },
+  contentContainer: {
+    flex: 1,
     justifyContent: 'center',
-    marginBottom: 24,
+    alignItems: 'center',
+    marginTop: 80, // Add margin top to account for logo space
   },
-  title1: {
-    fontSize: 24,
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    width: 320,
-
-  },
-     title2: {
-     fontSize: 24,
-     color: '#03BFB5',
-     textAlign: 'center',
-     fontWeight: 'bold',
-     marginBottom: 28,
-     width: 320,
-   },
-   accountPrompt: {
-     flexDirection: 'row',
-     
-     
-   },
-   accountPromptText: {
-     color: 'white',
-     fontSize: 16,
-   },
-   createAccountLink: {
-     color: '#03BFB5',
-     fontSize: 16,
-     fontWeight: 'bold',
-   },
-   loginInstruction: {
-     color: 'white',
-     fontSize: 14,
-    
-     marginBottom: 20,
-   },
-  errorContainer: {
-    backgroundColor: '#ff6b6b',
-    padding: 12,
+  formCard: {
+    width: Math.min(400, screenWidth - 48),
+    borderWidth: 1,
+    borderColor: 'white',
     borderRadius: 8,
+    padding: 24,
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 20,
+    color: 'white',
+    fontWeight: 'bold',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  subtitle: {
+    color: 'white',
+    fontSize: 12,
+    marginBottom: 24,
+    fontWeight: 'bold',
+  },
+  accountPrompt: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  accountPromptText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  createAccountLink: {
+    color: '#03BFB5',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  errorContainer: {
     marginBottom: 16,
-    width: 320,
   },
   errorText: {
-    color: 'white',
+    color: '#fca5a5',
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
   },
   inputContainer: {
-    width: 320,
+    marginBottom: 8,
+  },
+  inputLabel: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   input: {
-    height: 48,
+    height: 40,
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0f766e',
+    borderRadius: 2,
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 16,
+    color: '#0f766e',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0f766e',
+    borderRadius: 2,
     paddingHorizontal: 16,
-    height: 48,
+    height: 40,
+    marginBottom: 16,
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
-    color: 'black',
+    color: '#0f766e',
   },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    backgroundColor: 'white',
-    borderRadius: 3,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxInner: {
-    width: 12,
-    height: 12,
-    backgroundColor: 'black',
-    borderRadius: 1,
-  },
-  rememberText: {
-    color: 'white',
-    fontSize: 16,
-  },
-  loginButton: {
-    width: 320,
-    height: 48,
-    backgroundColor: '#03BFB5',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  loginButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  forgotPasswordButton: {
-    marginTop: 16,
+
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 24,
+    paddingTop: 8,
   },
   forgotPasswordText: {
     color: 'white',
     fontSize: 14,
-    fontWeight: 'bold',
-   
+    fontWeight: '600',
   },
-  signUpRow: {
+  buttonContainer: {
     flexDirection: 'row',
-    marginTop: 24,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    paddingTop: 24,
   },
-  signUpText: {
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  cancelButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
   },
-  signUpLink: {
-    color: '#03BFB5',
+  signInButton: {
+    height: 40,
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    minWidth: 120,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  signInButtonText: {
+    color: '#0f766e',
     fontSize: 16,
     fontWeight: 'bold',
   },

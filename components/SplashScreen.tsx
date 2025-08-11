@@ -14,7 +14,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   const screens = [
     {
       id: 'main',
-      duration: 3000,
+      duration: 2000, // Reduced from 3000ms to 2000ms for smoother transition
       content: (
         <View style={styles.screenContainer}>
           <Image 
@@ -39,7 +39,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
       // Fade in
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 500,
+        duration: 300, // Reduced from 500ms for smoother transition
         useNativeDriver: true,
       }).start();
 
@@ -47,7 +47,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
       setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 500,
+          duration: 300, // Reduced from 500ms for smoother transition
           useNativeDriver: true,
         }).start(() => {
           onFinish();
@@ -92,8 +92,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   logoImage: {
-    width: width * 0.8,
-    height: height * 0.4,
+    width: width * 0.6, // Adjusted for logo.png proportions
+    height: height * 0.3, // Adjusted to maintain proper aspect ratio
     marginBottom: 20,
+    // Note: Using logo.png since Frame 143724539 (2).png has special characters that Metro can't handle
   },
 }); 

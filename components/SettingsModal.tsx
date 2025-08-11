@@ -2,15 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   Dimensions,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { useToast } from '../hooks/useToast';
 import ConfirmationModal from './ConfirmationModal';
+import Toast from './Toast';
 
 interface SettingsModalProps {
   open: boolean;
@@ -22,6 +23,7 @@ const { width } = Dimensions.get('window');
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const router = useRouter();
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const { toast, showError, showSuccess, hideToast } = useToast();
 
   const handleResetSettingClick = () => {
     console.log('Reset Setting button pressed');
@@ -29,8 +31,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   };
 
   const handleConfirmReset = async () => {
+    console.log('Confirm reset clicked - starting reset process');
     try {
       const token = await AsyncStorage.getItem('token');
+      console.log('Token available:', !!token);
+      
       const response = await fetch(`${process.env.EXPO_PUBLIC_BASE_URL || 'https://backend.smartcnc.site/api'}/cnc/reset-preference`, {
         method: 'DELETE',
         headers: {
@@ -39,22 +44,29 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         },
       });
       
+      console.log('Reset API response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
-        Alert.alert('Error', errorData.error || 'Failed to reset preferences');
+        console.error('Reset API error:', errorData);
+        showError(errorData.error || 'Failed to reset preferences');
         return;
       }
+      
+      console.log('Reset API successful, updating local storage');
       
       // Reset remember choice
       await AsyncStorage.setItem('rememberChoice', 'false');
       await AsyncStorage.setItem('refreshTrigger', Date.now().toString());
       
-      Alert.alert('Success', 'Settings reset successfully!');
+      console.log('Local storage updated, showing success message');
+      showSuccess('Settings reset successfully!');
       
     } catch (err) {
-      console.log(err);
-      Alert.alert('Error', 'Failed to reset settings. Please try again.');
+      console.error('Reset error:', err);
+      showError('Failed to reset settings. Please try again.');
     } finally {
+      console.log('Closing confirmation modal');
       setIsConfirmModalOpen(false);
       onClose(); // Close settings modal
     }
@@ -119,6 +131,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         title="Warning"
         message="Are you sure you want to Reset Setting?"
       />
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onHide={hideToast}
+      />
     </>
   );
 }
@@ -134,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#004851',
     borderWidth: 4,
     borderColor: '#03BFB5',
-    borderRadius: 12,
+    borderRadius: 2,
     padding: 24,
     minWidth: 300,
     maxWidth: width - 48,
@@ -168,7 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#03BFB5',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 2,
     alignItems: 'center',
   },
   optionButtonText: {
@@ -180,7 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#03BFB5',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 2,
     alignItems: 'center',
   },
   logoutButtonText: {

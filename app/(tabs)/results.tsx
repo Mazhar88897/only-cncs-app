@@ -1,8 +1,13 @@
+import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
-import Logo from '../../assets/images/logo.svg';
+import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ReportIssueButton from '../../components/ReportIssueButton';
+import Toast from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
 
 interface ApiResponse {
   multiplier: number;
@@ -21,23 +26,57 @@ export default function ResultsScreen() {
   const [isMetric, setIsMetric] = useState(true); // false = inches, true = millimeters
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [apiData, setApiData] = useState<ApiResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false, will be set to true when refreshData is called
   const [error, setError] = useState('');
   const [multiplier, setMultiplier] = useState<number>(1); // default 1 (no change)
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [showSuccessFlag, setShowSuccessFlag] = useState(false);
+  const [displayMultiplier, setDisplayMultiplier] = useState<number>(1); // Separate state for display
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [timeSinceRefresh, setTimeSinceRefresh] = useState<string>('');
+  const [isPreparing, setIsPreparing] = useState(false); // New state for preparation phase
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused(); // Alternative focus detection
+  const { toast, showError, showSuccess, hideToast } = useToast();
+
+  // Load initial multiplier from AsyncStorage as fallback
   useEffect(() => {
-    const fetchMultiplier = async () => {
-      const multiplierActual = await AsyncStorage.getItem('multiplier');
-      if (multiplierActual) {
-        setMultiplier(parseFloat(multiplierActual));
-      }
-    };
-    fetchMultiplier();
+    // Reset multiplier state to default when component mounts
+    // This ensures fresh API data takes precedence
+    console.log('Resetting multiplier state to default - waiting for API response');
+    setMultiplier(1);
+    setDisplayMultiplier(1);
   }, []);
+
+  // Use useFocusEffect to refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🚀 SCREEN FOCUSED - AUTO-TRIGGERING REFRESH');
+      console.log('📍 Current state - apiData:', !!apiData, 'lastRefreshTime:', lastRefreshTime);
+      
+      // ALWAYS refresh when screen comes into focus (temporarily remove the 30-second check)
+      console.log('✅ ALWAYS REFRESHING - REMOVED 30 SECOND CHECK');
+      console.log('⏳ Starting preparation phase (0.5s delay)...');
+      setIsPreparing(true);
+      
+      // Add 0.5 second delay for smoother user experience
+      const timer = setTimeout(() => {
+        console.log('✅ Preparation complete, starting data refresh...');
+        setIsPreparing(false);
+        refreshData();
+      }, 500);
+      
+      // Cleanup timer if component unmounts
+      return () => {
+        console.log('🧹 Cleaning up timer');
+        clearTimeout(timer);
+      };
+    }, []) // Remove lastRefreshTime dependency to ensure it always runs
+  );
+
+  // Don't auto-save multiplier changes - let API response control it
 
 
   // Conversion functions
@@ -74,94 +113,217 @@ export default function ResultsScreen() {
     return 'N/A';
   };
 
-  const getMultiplied = (value: number | null) =>
-    value === null ? null : value * multiplier;
+  const getMultiplied = (value: number | null) => {
+    const result = value === null ? null : value * displayMultiplier;
+    // Reduced logging to prevent console spam
+    // console.log(`getMultiplied: ${value} * ${displayMultiplier} = ${result}`);
+    return result;
+  };
 
-  // Fetch settings from API or AsyncStorage
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-
-        // First, try to get data from AsyncStorage
-        const storedSettings = await AsyncStorage.getItem('setting');
-        if (storedSettings) {
-          try {
-            const data: ApiResponse = JSON.parse(storedSettings);
-            console.log('Using stored settings:', data);
-            setApiData(data);
-            setIsLoading(false);
-            return;
-          } catch (parseError) {
-            console.error('Error parsing stored settings:', parseError);
-            // Continue to API call if parsing fails
-          }
-        }
-
-        // If no stored data, get selected values from AsyncStorage and make API call
-        const machine = await AsyncStorage.getItem('selectedMachine');
-        const spindle = await AsyncStorage.getItem('selectedRouter');
-        const bit = await AsyncStorage.getItem('selectedBit');
-        const material = await AsyncStorage.getItem('selectedMaterial');
-        const remember = await AsyncStorage.getItem('rememberChoice');
-     
-
-        // Check if all required values are available
-        if (!machine || !spindle || !bit || !material) {
-          setError('Please complete the previous steps to get settings');
-          setIsLoading(false);
-          return;
-        }
-
-        const requestBody = {
-          machine: machine || '',
-          spindle: spindle || '',
-          bit: bit || '',
-          material: material || '',
-          remember: remember === 'true'
-        };
-
-        console.log('API Request Body:', requestBody);
-        console.log('Request Body Types:', {
-          machine: typeof machine,
-          spindle: typeof spindle,
-          bit: typeof bit,
-          material: typeof material,
-          remember: typeof remember
-        });
-
-        const response = await fetch(`https://backend.smartcnc.site/api/cnc/calculate-settings`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch settings');
-        }
-
-        const data: ApiResponse = await response.json();
-        setApiData(data);
-        console.log('API Response:', data);
-        setMultiplier(data.multiplier);
+  // MANUAL REFRESH FUNCTION - Call this anytime to get fresh data
+  const refreshData = async () => {
+    console.log('🔄 REFRESH TRIGGERED');
+    try {
+      setIsLoading(true);
+      setError('');
       
-        console.log('Multiplier again:', data.multiplier);
-        // Check if user has made any adjustments to the multiplier
-        
+      // AGGRESSIVE STATE CLEARING - Clear everything immediately
+      console.log('🧹 CLEARING ALL STATE BEFORE FRESH FETCH');
+      setApiData(null); // Set to null first to trigger re-render
+      setMultiplier(1);
+      setDisplayMultiplier(1);
+      setLastRefreshTime(null);
+      setTimeSinceRefresh('');
+      setIsPreparing(false); // Reset preparing state
+      
+      // Small delay to ensure state is cleared
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Clear state with empty structure
+      setApiData({
+        bit: '',
+        depth_of_cut: null,
+        feed: null,
+        material: '',
+        multiplier: 1,
+        plunge: null,
+        rpm: null,
+        spindle: '',
+        stepover: null,
+        warning: null
+      });
+      
+      // Get stored values for API request
+      const token = await AsyncStorage.getItem('token');
+      const selectedMachine = await AsyncStorage.getItem('selectedMachine');
+      const selectedRouter = await AsyncStorage.getItem('selectedRouter');
+      const selectedBit = await AsyncStorage.getItem('selectedBit');
+      const selectedMaterial = await AsyncStorage.getItem('selectedMaterial');
+      const rememberChoice = await AsyncStorage.getItem('rememberChoice');
 
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching settings:', err);
-      } finally {
+      if (!token) {
+        setError('Authorization token not found');
         setIsLoading(false);
+        return;
       }
-    };
 
-    fetchSettings();
-  }, []);
+      if (!selectedMachine || !selectedRouter || !selectedBit || !selectedMaterial) {
+        setError('Missing required selections');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Making API call to fetch fresh settings...');
+      
+      const requestBody = {
+        bit: selectedBit,
+        machine: selectedMachine,
+        material: selectedMaterial,
+        remember: rememberChoice === 'true',
+        spindle: selectedRouter
+      };
+
+      console.log('API Request Body:', requestBody);
+      console.log('Request Body Types:', {
+        bit: typeof selectedBit,
+        machine: typeof selectedMachine,
+        material: typeof selectedMaterial,
+        remember: typeof rememberChoice,
+        spindle: typeof selectedRouter
+      });
+
+      const response = await fetch('https://backend.smartcnc.site/api/cnc/get-values', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API response not ok:', response.status, errorText);
+        throw new Error(`Failed to fetch settings: ${response.status} ${errorText}`);
+      }
+
+      const freshData: ApiResponse = await response.json();
+      console.log('API Response:', freshData);
+
+      // Update state with fresh data
+      setApiData({
+        bit: '',
+        depth_of_cut: null,
+        feed: null,
+        material: '',
+        multiplier: 1,
+        plunge: null,
+        rpm: null,
+        spindle: '',
+        stepover: null,
+        warning: null
+      });
+      setApiData(freshData);
+      setMultiplier(freshData.multiplier);
+      setDisplayMultiplier(freshData.multiplier);
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('setting', JSON.stringify(freshData));
+      await AsyncStorage.setItem('multiplier', freshData.multiplier.toString());
+      
+      // Update refresh timestamp
+      const now = new Date();
+      setLastRefreshTime(now);
+      setTimeSinceRefresh('');
+      
+      console.log('✅ Data refreshed successfully!');
+      showSuccess('Data refreshed successfully!');
+      
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch settings');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // FALLBACK: Also trigger refresh when component mounts (in case useFocusEffect doesn't work)
+  useEffect(() => {
+    console.log('🔄 COMPONENT MOUNTED - FALLBACK REFRESH');
+    console.log('📍 Component mounted at:', new Date().toISOString());
+    // Small delay to ensure component is fully mounted
+    const timer = setTimeout(() => {
+      console.log('✅ Fallback timer complete, starting refresh...');
+      refreshData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []); // Empty dependency array ensures this runs only once when component mounts
+
+  // TEST: Add a listener for when the component becomes visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Component still alive - checking state...');
+      console.log('📍 Current time:', new Date().toISOString());
+      console.log('📊 apiData exists:', !!apiData);
+      console.log('⏰ lastRefreshTime:', lastRefreshTime);
+    }, 5000); // Log every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [apiData, lastRefreshTime]);
+
+  // ALTERNATIVE: Watch isFocused state from @react-navigation/native
+  useEffect(() => {
+    console.log('🎯 isFocused changed to:', isFocused);
+    
+    if (isFocused) {
+      console.log('🚀 SCREEN IS NOW FOCUSED (via useIsFocused)');
+      console.log('⏳ Starting preparation phase (0.5s delay)...');
+      setIsPreparing(true);
+      
+      const timer = setTimeout(() => {
+        console.log('✅ Preparation complete, starting data refresh...');
+        setIsPreparing(false);
+        refreshData();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    } else {
+      console.log('👋 Screen lost focus');
+    }
+  }, [isFocused]); // This will run every time isFocused changes
+
+  // Update time since refresh every second - OPTIMIZED to prevent infinite re-renders
+  useEffect(() => {
+    if (!lastRefreshTime) return;
+    
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = now.getTime() - lastRefreshTime.getTime();
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      
+      let newTimeString = '';
+      if (hours > 0) {
+        newTimeString = `${hours}h ${minutes % 60}m ago`;
+      } else if (minutes > 0) {
+        newTimeString = `${minutes}m ${seconds % 60}s ago`;
+      } else {
+        newTimeString = `${seconds}s ago`;
+      }
+      
+      // Only update state if the time string has actually changed
+      setTimeSinceRefresh(prev => {
+        if (prev !== newTimeString) {
+          return newTimeString;
+        }
+        return prev;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [lastRefreshTime]);
 
   useEffect(() => {
     // Check for warning in AsyncStorage
@@ -179,10 +341,32 @@ export default function ResultsScreen() {
     checkWarning();
   }, []);
 
+  // Log when displayMultiplier changes - REDUCED LOGGING
+  useEffect(() => {
+    // Only log significant changes to reduce console spam
+    if (displayMultiplier !== 1) {
+      console.log('displayMultiplier changed to:', displayMultiplier);
+    }
+  }, [displayMultiplier]);
+
+  // Log when apiData changes - REDUCED LOGGING
+  useEffect(() => {
+    // Only log when apiData actually changes to reduce console spam
+    if (apiData) {
+      console.log('apiData updated with new values');
+    }
+  }, [apiData]);
+
+  
+
+
+
   const handleGoBack = async () => {
     const multiplierActual = await AsyncStorage.getItem('multiplier');
     if (multiplierActual) {
-      setMultiplier(parseFloat(multiplierActual));
+      const value = parseFloat(multiplierActual);
+      setMultiplier(value);
+      setDisplayMultiplier(value);
     }
   
     router.back();
@@ -195,16 +379,30 @@ export default function ResultsScreen() {
       if (next > 2.0) next = 2.0;
       return next;
     });
+    
+    // Also update the display multiplier for immediate UI updates
+    setDisplayMultiplier((prev) => {
+      let next = Math.round((prev + delta) * 10) / 10;
+      if (next < 0.1) next = 0.1;
+      if (next > 2.0) next = 2.0;
+      return next;
+    });
   };
 
-  const handleSaveMultiplier = async () => {
+  const handleSaveMultiplier = async (newMultiplier: number) => {
     try {
-      // await AsyncStorage.setItem('multiplier', multiplier.toString());
-      setMultiplier(multiplier);
+      // Update both the multiplier state and display multiplier
+      setMultiplier(newMultiplier);
+      setDisplayMultiplier(newMultiplier);
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('multiplier', newMultiplier.toString());
+      
       setIsModalVisible(false);
+      showSuccess('Multiplier saved successfully!');
     } catch (error) {
       console.error('Error saving multiplier:', error);
-      Alert.alert('Error', 'Failed to save multiplier');
+      showError('Failed to save multiplier');
     }
   };
 
@@ -215,7 +413,7 @@ export default function ResultsScreen() {
       // Get the token from AsyncStorage
       const token = await AsyncStorage.getItem('token');
       if (!token) {
-        Alert.alert('Error', 'Authentication token not found');
+        showError('Authentication token not found');
         return;
       }
 
@@ -226,17 +424,54 @@ export default function ResultsScreen() {
       const selectedMaterial = await AsyncStorage.getItem('selectedMaterial') || '';
       const rememberChoice = await AsyncStorage.getItem('rememberChoice') || '';
 
+      // Also try to get from stored settings if AsyncStorage keys are empty
+      let finalBit = selectedBit;
+      let finalMaterial = selectedMaterial;
+      
+      if (!selectedBit || !selectedMaterial) {
+        const storedSettings = await AsyncStorage.getItem('setting');
+        if (storedSettings) {
+          try {
+            const settings = JSON.parse(storedSettings);
+            if (!selectedBit && settings.bit) {
+              finalBit = settings.bit;
+            }
+            if (!selectedMaterial && settings.material) {
+              finalMaterial = settings.material;
+            }
+          } catch (parseError) {
+            console.error('Error parsing stored settings:', parseError);
+          }
+        }
+      }
+
+      // Log all values before sending
+      console.log('Share values:', {
+        machine: selectedMachine,
+        spindle: selectedRouter,
+        bit: finalBit,
+        material: finalMaterial,
+        multiplier
+      });
+
+      // Pre-check for missing fields
+      if (!selectedMachine || !selectedRouter || !finalBit || !finalMaterial || !multiplier) {
+        showError('All fields are required to share settings.');
+        setIsSharing(false);
+        return;
+      }
+
       // Prepare the request body
       const requestBody = {
         machine: selectedMachine,
         spindle: selectedRouter,
-        bit: selectedBit,
-        material: selectedMaterial,
-        rememberChoice: rememberChoice,
+        bit: finalBit,
+        material: finalMaterial,
         multiplier: multiplier.toString()
       };
 
       console.log('Share request body:', requestBody);
+      console.log('Token available:', !!token);
 
       // Make the API call
       const response = await fetch('https://backend.smartcnc.site/api/cnc/share-settings', {
@@ -253,56 +488,42 @@ export default function ResultsScreen() {
 
       if (!response.ok) {
         const responseText = await response.text();
+        console.log('Share response status:', response.status);
         console.log('Share response text:', responseText);
         
         let errorMessage = 'Failed to share settings';
         try {
-          const data = JSON.parse(responseText);
-          errorMessage = data.error || data.message || errorMessage;
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.error || errorMessage;
         } catch (parseError) {
-          console.error('Error parsing share response:', parseError);
+          console.error('Error parsing error response:', parseError);
         }
         
-        Alert.alert('Error', errorMessage);
+        showError(`HTTP ${response.status}: ${errorMessage}`);
+        setIsSharing(false);
         return;
       }
 
-      const responseText = await response.text();
-      console.log('Share response text:', responseText);
-      
-      let data;
+      const responseData = await response.text();
+      console.log('Share response data:', responseData);
+
       try {
-        data = JSON.parse(responseText);
+        const parsedData = JSON.parse(responseData);
+        if (parsedData.success) {
+          showSuccess('Settings shared successfully!');
+        } else {
+          showError('Failed to share settings');
+        }
       } catch (parseError) {
-        console.error('Error parsing share response:', parseError);
-        Alert.alert('Error', 'Invalid response from server');
-        return;
+        console.error('Error parsing response:', parseError);
+        showError('Invalid response from server');
       }
-
-      // Show success message
-      setShowSuccessFlag(true);
-      Alert.alert(
-        'Success', 
-        'Settings shared successfully! Thank you for your feedback.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setShowSuccessFlag(false);
-              setIsModalVisible(false);
-            }
-          }
-        ]
-      );
-
     } catch (error) {
-      console.error('Error sharing settings:', error);
-      
-      // Check if it's a network error
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        Alert.alert('Network Error', 'Please check your internet connection and try again.');
+      console.error('Share error:', error);
+      if (error instanceof Error && error.message.includes('Network request failed')) {
+        showError('Network Error: Please check your internet connection and try again.');
       } else {
-        Alert.alert('Error', 'Failed to share settings. Please try again.');
+        showError('Failed to share settings. Please try again.');
       }
     } finally {
       setIsSharing(false);
@@ -320,9 +541,15 @@ export default function ResultsScreen() {
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.warningModalBox}>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
               <Text style={styles.warningModalTitle}>Warning</Text>
-              <Text style={styles.warningModalMessage}>{message}</Text>
-              <TouchableOpacity style={styles.warningModalButton} onPress={onClose}>
+              <Text style={styles.warningModalMessage}>Be cautious with this setting</Text>
+              <TouchableOpacity style={styles.warningModalButton} onPress={() => {
+                onClose();
+                handleSaveMultiplier(multiplier);
+              }}>
                 <Text style={styles.warningModalButtonText}>Proceed</Text>
               </TouchableOpacity>
             </View>
@@ -332,23 +559,75 @@ export default function ResultsScreen() {
     </Modal>
   );
 
+
+
+  // Debug: Log when component re-renders
+  console.log('🔄 ResultsScreen re-render - multiplier:', multiplier, 'displayMultiplier:', displayMultiplier);
+  console.log('📊 Current apiData:', apiData);
+  console.log('⏰ Last refresh time:', lastRefreshTime);
+  console.log('⏱️ Time since refresh:', timeSinceRefresh);
+  console.log('🎯 isPreparing:', isPreparing, 'isLoading:', isLoading);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Logo width={180} height={70} style={styles.logo} />
-      <Text style={styles.title}>Suggested Settings</Text>
+    <ScrollView contentContainerStyle={[
+      styles.container,
+      { paddingBottom: Math.max(48, insets.bottom + 48) }
+    ]}>
+      
+      {/* DEBUG INDICATOR - Remove this after fixing */}
+      
+      
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <Text style={styles.title}>Suggested Settings</Text>
+        
+      </View>
+
+            {/* REFRESH BUTTON */}
+      <TouchableOpacity 
+        onPress={refreshData} 
+        disabled={isLoading}
+        style={{
+          alignSelf: 'flex-start',
+          
+          paddingHorizontal: 20,
+          
+          
+          marginBottom: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          opacity: isLoading ? 0.7 : 1,
+        }}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Feather name="refresh-cw" size={16} color="white" />
+        )}
+        <Text style={{ color: 'white', fontWeight: '600' }}>
+          {isLoading ? 'Refreshing...' : 'Refresh Data'}
+        </Text>
+              </TouchableOpacity>
+
+      
+
+      {isPreparing && !apiData && (
+        <View style={styles.preparingContainer}>
+          <ActivityIndicator size="small" color="#44C09E" />
+          <Text style={styles.preparingText}>Preparing...</Text>
+        </View>
+      )}
 
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#44C09E" />
-          <Text style={styles.loadingText}>Loading settings...</Text>
+          <Text style={styles.loadingText}>
+            {apiData ? 'Refreshing settings...' : 'Loading settings...'}
+          </Text>
         </View>
       )}
 
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+      
 
       {apiData && (
         <>
@@ -365,36 +644,61 @@ export default function ResultsScreen() {
 
           <Text style={styles.sectionHeader}>Area Clearance (Pocket):</Text>
           <View style={styles.settingsBox}>
-            <Text style={styles.setting}>RPM:      <Text style={styles.value}>{apiData.rpm ? apiData.rpm.toLocaleString() : 'N/A'}</Text></Text>
-            <Text style={styles.setting}>Feed:     <Text style={styles.value}>{formatValue(getMultiplied(apiData.feed), 'speed')}</Text></Text>
-            <Text style={styles.setting}>DOC:      <Text style={styles.value}>{formatValue(getMultiplied(apiData.depth_of_cut), 'length')}</Text></Text>
-            <Text style={styles.setting}>Stepover: <Text style={styles.value}>{formatValue(apiData.stepover, 'length')}</Text></Text>
-            <Text style={styles.setting}>Plunge:   <Text style={styles.value}>{formatValue(getMultiplied(apiData.plunge), 'speed')}</Text></Text>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>RPM:</Text>
+              <Text style={styles.value}>{apiData.rpm ? apiData.rpm.toLocaleString() : 'N/A'}</Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>Feed:</Text>
+              <Text style={styles.value}>{formatValue(getMultiplied(apiData.feed), 'speed')}</Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>DOC:</Text>
+              <Text style={styles.value}>{formatValue(getMultiplied(apiData.depth_of_cut), 'length')}</Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>Stepover:</Text>
+              <Text style={styles.value}>{formatValue(apiData.stepover, 'length')}</Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>Plunge:</Text>
+              <Text style={styles.value}>{formatValue(getMultiplied(apiData.plunge), 'speed')}</Text>
+            </View>
           </View>
 
           <Text style={styles.sectionHeader}>Profile:</Text>
           <View style={styles.settingsBox}>
-            <Text style={styles.setting}>RPM:      <Text style={styles.value}>{apiData.rpm ? apiData.rpm.toLocaleString() : 'N/A'}</Text></Text>
-            <Text style={styles.setting}>Feed:     <Text style={styles.value}>
-              {getMultiplied(apiData.feed) !== null
-                ? formatValue(getMultiplied(apiData.feed)! * 0.9, 'speed')
-                : 'N/A'}
-            </Text></Text>
-            <Text style={styles.setting}>DOC:      <Text style={styles.value}>
-              {getMultiplied(apiData.depth_of_cut) !== null
-                ? formatValue(getMultiplied(apiData.depth_of_cut)! * 0.9, 'length')
-                : 'N/A'}
-            </Text></Text>
-            <Text style={styles.setting}>Plunge:   <Text style={styles.value}>
-              {getMultiplied(apiData.plunge) !== null
-                ? formatValue(getMultiplied(apiData.plunge)! * 0.9, 'speed')
-                : 'N/A'}
-            </Text></Text>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>RPM:</Text>
+              <Text style={styles.value}>{apiData.rpm ? apiData.rpm.toLocaleString() : 'N/A'}</Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>Feed:</Text>
+              <Text style={styles.value}>
+                {getMultiplied(apiData.feed) !== null
+                  ? formatValue(getMultiplied(apiData.feed)! * 0.9, 'speed')
+                  : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>DOC:</Text>
+              <Text style={styles.value}>
+                {getMultiplied(apiData.depth_of_cut) !== null
+                  ? formatValue(getMultiplied(apiData.depth_of_cut)! * 0.9, 'length')
+                  : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.setting}>
+              <Text style={styles.settingLabel}>Plunge:</Text>
+              <Text style={styles.value}>
+                {getMultiplied(apiData.plunge) !== null
+                  ? formatValue(getMultiplied(apiData.plunge)! * 0.9, 'speed')
+                  : 'N/A'}
+              </Text>
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.goBackButton} onPress={handleGoBack}>
-            <Text style={styles.goBackButtonText}>Go Back</Text>
-          </TouchableOpacity>
+          
 
           <Text style={styles.infoText}>
             If these settings were too slow or too aggressive, you can adjust them:
@@ -403,6 +707,9 @@ export default function ResultsScreen() {
           <TouchableOpacity style={styles.adjustButton} onPress={() => setIsModalVisible(true)}>
             <Text style={styles.adjustButtonText}>Adjust Multiplier</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.goBackButton} onPress={handleGoBack}>
+            <Text style={styles.goBackButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </>
       )}
 
@@ -410,7 +717,7 @@ export default function ResultsScreen() {
       <WarningModal
         visible={showWarningModal}
         onClose={() => setShowWarningModal(false)}
-        message={warningMessage || ''}
+        message=""
       />
 
       {/* Adjust Multiplier Modal */}
@@ -424,28 +731,32 @@ export default function ResultsScreen() {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.modalBox}>
-                <Text style={styles.modalTitle}>Adjust Multiplier</Text>
+                <Text style={styles.modalTitle}>Area Clearance (Pocket):</Text>
                 <Text style={styles.modalDesc}>
                   By increasing or decreasing this number, you can tune the settings to your machine.{'\n'}
-                  One click of the + or - will adjust the core value by 10%.
+                  One click of the + or - will adjust the core value by 10%
                 </Text>
-                <View style={styles.modalRow}>
+                
+                <View style={styles.modalControls}>
                   <TouchableOpacity style={styles.modalBtn} onPress={() => handleAdjust(-0.1)}>
                     <Text style={styles.modalBtnText}>-</Text>
                   </TouchableOpacity>
+                  
                   <View style={styles.modalValueBox}>
-                    <Text style={styles.modalValue}>{multiplier}</Text>
+                    <Text style={styles.modalValue}>{displayMultiplier.toFixed(2)}</Text>
                   </View>
+                  
                   <TouchableOpacity style={styles.modalBtn} onPress={() => handleAdjust(0.1)}>
                     <Text style={styles.modalBtnText}>+</Text>
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveMultiplier}>
+                
+                <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setShowWarningModal(true)}>
                   <Text style={styles.modalSaveBtnText}>Save</Text>
                 </TouchableOpacity>
-                <Text style={styles.modalFeedback}>
-                  Feedback is vital.{'\n'}If this new value is better, please click the share button
-                </Text>
+                
+                <Text style={styles.modalFeedback}>Feedback is vital. If this new value is better, please click the share button</Text>
+                
                 <TouchableOpacity 
                   style={[styles.modalShareBtn, isSharing && styles.modalShareBtnDisabled]} 
                   onPress={handleShare}
@@ -455,11 +766,22 @@ export default function ResultsScreen() {
                     {isSharing ? 'Sharing...' : 'Share'}
                   </Text>
                 </TouchableOpacity>
+                
+
               </View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+      <ReportIssueButton />
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onHide={hideToast}
+      />
     </ScrollView>
   );
 }
@@ -470,17 +792,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     backgroundColor: '#004146',
-    paddingBottom: 48,
   },
   logo: {
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 20
     color: 'white',
     fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: Math.max(12, Dimensions.get('window').height * 0.015), // 1.5% of screen height, minimum 12
+    textAlign: 'left',
+    paddingTop: 10,
+    alignSelf: 'flex-start',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -488,32 +811,33 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: 'white',
-    fontSize: 16,
-    marginTop: 8,
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
+    marginTop: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
   },
   errorContainer: {
     backgroundColor: '#ff6b6b',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: Math.max(12, Dimensions.get('window').width * 0.03), // 3% of screen width, minimum 12
+    borderRadius: Math.max(6, Dimensions.get('window').width * 0.015), // 1.5% of screen width, minimum 6
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
     width: '100%',
   },
   errorText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: Math.max(12, Dimensions.get('window').width * 0.035), // 3.5% of screen width, minimum 12
     textAlign: 'center',
     fontWeight: '500',
   },
   toggleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
+    alignSelf: 'flex-start',
   },
   toggleLabel: {
     color: '#fff',
-    fontSize: 16,
-    marginHorizontal: 8,
+    fontSize: Math.max(18, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
+    marginHorizontal: Math.max(8, Dimensions.get('window').width * 0.02), // 2% of screen width, minimum 8
     opacity: 0.5,
   },
   toggleActive: {
@@ -524,60 +848,76 @@ const styles = StyleSheet.create({
   sectionHeader: {
     color: '#44C09E',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
     alignSelf: 'flex-start',
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: Math.max(12, Dimensions.get('window').height * 0.015), // 1.5% of screen height, minimum 12
+    marginBottom: Math.max(4, Dimensions.get('window').height * 0.005), // 0.5% of screen height, minimum 4
   },
   settingsBox: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 2,
+    padding: Math.max(20, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 20
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
     width: '100%',
     alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: '#004851',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   setting: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
+  },
+  settingLabel: {
     color: '#222',
-    fontSize: 16,
-    marginBottom: 2,
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 18
+    fontWeight: '500',
   },
   value: {
     fontWeight: 'bold',
     color: '#222',
+    fontSize: Math.max(18, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 18
+    textAlign: 'left',
+
   },
   goBackButton: {
-    backgroundColor: '#44C09E',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    marginTop: 12,
-    marginBottom: 8,
-    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 2,
+    paddingVertical: Math.max(12, Dimensions.get('window').height * 0.015), // 1.5% of screen height, minimum 12
+    paddingHorizontal: Math.max(32, Dimensions.get('window').width * 0.08), // 8% of screen width, minimum 32
+    marginTop: Math.max(12, Dimensions.get('window').height * 0.015), // 1.5% of screen height, minimum 12
+    marginBottom: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
+    alignSelf: 'flex-start',
     alignItems: 'center',
   },
   goBackButtonText: {
-    color: 'white',
-    fontSize: 20,
+    color: 'black',
+    fontSize: Math.max(18, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 18
     fontWeight: 'bold',
   },
   infoText: {
-    color: '#fff',
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 8,
+    color: '#4cd3c2',
+    fontSize: Math.max(18, Dimensions.get('window').width * 0.035), // 3.5% of screen width, minimum 12
+    textAlign: 'left',
+    marginVertical: Math.max(12, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
   },
   adjustButton: {
     backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    borderRadius: 2,
+    paddingVertical: Math.max(10, Dimensions.get('window').height * 0.0125), // 1.25% of screen height, minimum 10
+    paddingHorizontal: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
     alignItems: 'center',
-    width: '100%',
+    alignSelf: 'flex-start',
   },
   adjustButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
     fontWeight: 'bold',
   },
   // Modal styles
@@ -589,128 +929,209 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     backgroundColor: '#004146',
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#44C09E',
-    padding: 20,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: '#03BFB5',
+    padding: Math.max(20, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 20
     width: '90%',
     alignItems: 'center',
   },
   modalTitle: {
     color: '#44C09E',
     fontWeight: 'bold',
-    fontSize: 22,
-    marginBottom: 8,
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.055), // 5.5% of screen width, minimum 20
+    marginBottom: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
     textAlign: 'center',
   },
   modalDesc: {
     color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
+    textAlign: 'left',
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
   },
   modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
   },
   modalBtn: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    padding: 10,
-    marginHorizontal: 16,
-    width: 40,
+    backgroundColor: '#03BFB5',
+    borderRadius: 0,
+    padding: Math.max(10, Dimensions.get('window').width * 0.025), // 2.5% of screen width, minimum 10
+    marginHorizontal: 0,
+    width: Math.max(40, Dimensions.get('window').width * 0.1), // 10% of screen width, minimum 40
     alignItems: 'center',
   },
   modalBtnText: {
-    color: 'white',
-    fontSize: 24,
+    color: '#333333',
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.055), // 5.5% of screen width, minimum 20
     fontWeight: 'bold',
   },
   modalValueBox: {
     backgroundColor: 'white',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    minWidth: 60,
+    borderRadius: 2,
+    paddingVertical: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
+    paddingHorizontal: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
+    minWidth: Math.max(60, Dimensions.get('window').width * 0.15), // 15% of screen width, minimum 60
     alignItems: 'center',
   },
   modalValue: {
     color: '#004146',
-    fontSize: 22,
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.055), // 5.5% of screen width, minimum 20
     fontWeight: 'bold',
   },
   modalSaveBtn: {
-    backgroundColor: '#44C09E',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    backgroundColor: '#03BFB5',
+    borderRadius: 2,
+    paddingVertical: Math.max(10, Dimensions.get('window').height * 0.0125), // 1.25% of screen height, minimum 10
+    paddingHorizontal: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
     alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
-    marginBottom: 8,
+    marginBottom: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
   },
   modalSaveBtnText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: Math.max(16, Dimensions.get('window').width * 0.045), // 4.5% of screen width, minimum 16
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   modalFeedback: {
     color: 'white',
-    fontSize: 14,
+    fontSize: Math.max(12, Dimensions.get('window').width * 0.035), // 3.5% of screen width, minimum 12
     textAlign: 'center',
-    marginVertical: 8,
+    marginVertical: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
   },
   modalShareBtn: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    backgroundColor: '#03BFB5',
+    borderRadius: 2,
+    paddingVertical: Math.max(10, Dimensions.get('window').height * 0.0125), // 1.25% of screen height, minimum 10
+    paddingHorizontal: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
     alignItems: 'center',
     width: '100%',
   },
   modalShareBtnText: {
-    color: 'white',
-    fontSize: 16,
+    color: 'black',
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
     fontWeight: 'bold',
   },
   modalShareBtnDisabled: {
     opacity: 0.6,
   },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#03BFB5',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
   // Warning Modal styles
   warningModalBox: {
     backgroundColor: '#004146',
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#ff6b6b',
-    padding: 20,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: '#03BFB5',
+    padding: Math.max(20, Dimensions.get('window').width * 0.05), // 5% of screen width, minimum 20
     width: '90%',
     alignItems: 'center',
   },
   warningModalTitle: {
-    color: '#ff6b6b',
+    color: '#03BFB5',
     fontWeight: 'bold',
-    fontSize: 22,
-    marginBottom: 8,
+    fontSize: Math.max(20, Dimensions.get('window').width * 0.055), // 5.5% of screen width, minimum 20
+    marginBottom: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
     textAlign: 'center',
   },
   warningModalMessage: {
     color: 'white',
-    fontSize: 16,
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
   },
   warningModalButton: {
-    backgroundColor: '#ff6b6b',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    backgroundColor: '#03BFB5',
+    borderRadius: 2,
+    paddingVertical: Math.max(10, Dimensions.get('window').height * 0.0125), // 1.25% of screen height, minimum 10
+    paddingHorizontal: Math.max(24, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 24
     alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
   },
   warningModalButtonText: {
+    color: '#004146',
+    fontSize: Math.max(16, Dimensions.get('window').width * 0.045), // 4.5% of screen width, minimum 16
+    fontWeight: 'bold',
+  },
+  modalControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02), // 2% of screen height, minimum 16
+  },
+  statusContainer: {
+    backgroundColor: 'rgba(68, 192, 158, 0.1)',
+    paddingHorizontal: Math.max(12, Dimensions.get('window').width * 0.03),
+    paddingVertical: Math.max(8, Dimensions.get('window').height * 0.01),
+    borderRadius: Math.max(6, Dimensions.get('window').width * 0.015),
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02),
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#44C09E',
+  },
+  statusText: {
+    color: '#44C09E',
+    fontSize: Math.max(12, Dimensions.get('window').width * 0.035),
+    fontWeight: '500',
+  },
+  preparingContainer: {
+    alignItems: 'center',
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02),
+    padding: Math.max(16, Dimensions.get('window').width * 0.04),
+    backgroundColor: 'rgba(68, 192, 158, 0.1)',
+    borderRadius: Math.max(8, Dimensions.get('window').width * 0.02),
+    borderWidth: 1,
+    borderColor: '#44C09E',
+  },
+  preparingText: {
+    color: '#44C09E',
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04),
+    marginTop: Math.max(8, Dimensions.get('window').height * 0.01),
+    fontWeight: '500',
+  },
+  debugContainer: {
+    backgroundColor: '#ff6b6b',
+    padding: Math.max(12, Dimensions.get('window').width * 0.03),
+    borderRadius: Math.max(6, Dimensions.get('window').width * 0.015),
+    marginBottom: Math.max(16, Dimensions.get('window').height * 0.02),
+    width: '100%',
+    borderWidth: 2,
+    borderColor: '#ff4757',
+  },
+  debugText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: Math.max(10, Dimensions.get('window').width * 0.025),
+    textAlign: 'left',
+    fontWeight: '500',
+    marginBottom: Math.max(4, Dimensions.get('window').height * 0.005),
+  },
+  debugButton: {
+    backgroundColor: '#ff4757',
+    padding: Math.max(8, Dimensions.get('window').width * 0.02),
+    borderRadius: Math.max(4, Dimensions.get('window').width * 0.01),
+    marginTop: Math.max(8, Dimensions.get('window').height * 0.01),
+    alignSelf: 'center',
+  },
+  debugButtonText: {
+    color: 'white',
+    fontSize: Math.max(12, Dimensions.get('window').width * 0.03),
     fontWeight: 'bold',
   },
 }); 

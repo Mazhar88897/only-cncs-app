@@ -2,8 +2,11 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Logo from '../../assets/images/logo.svg';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ReportIssueButton from '../../components/ReportIssueButton';
+import Toast from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
 
 interface MachineOption {
   id: string;
@@ -41,8 +44,8 @@ const fetchBitOptions = async () => {
 }
 
 export default function MaterialScreen() {
-  const [cncMachine, setCncMachine] = useState("");
-  const [router, setRouter] = useState("");
+  const [selectedMaterial, setSelectedMaterial] = useState("");
+  const [selectedBit, setSelectedBit] = useState("");
   const [isMaterialModalVisible, setIsMaterialModalVisible] = useState(false);
   const [isBitModalVisible, setIsBitModalVisible] = useState(false);
   const [bitSearch, setBitSearch] = useState("");
@@ -51,6 +54,8 @@ export default function MaterialScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const router_nav = useRouter();
+  const insets = useSafeAreaInsets();
+  const { toast, showError, hideToast } = useToast();
 
   // Fetch data from API
   useEffect(() => {
@@ -67,21 +72,41 @@ export default function MaterialScreen() {
         
         const sessionBit = await AsyncStorage.getItem('selectedBit');
         const sessionMaterial = await AsyncStorage.getItem('selectedMaterial');
+        const selectedMachine = await AsyncStorage.getItem('selectedMachine');
+        const selectedRouter = await AsyncStorage.getItem('selectedRouter');
        
-        console.log('sessionBit', sessionBit);
-        console.log('sessionMaterial', sessionMaterial);
+        console.log('=== Loading Data ===');
+        console.log('sessionBit:', sessionBit);
+        console.log('sessionMaterial:', sessionMaterial);
+        console.log('selectedMachine:', selectedMachine);
+        console.log('selectedRouter:', selectedRouter);
+        console.log('===================');
         
         // Set selections (saved values or defaults)
-        if (materials.length > 0 && !sessionMaterial) {
-          setCncMachine(materials[0].name);
-        } else if (materials.length > 0 && sessionMaterial) {
-          setCncMachine(sessionMaterial);
+        if (materials.length > 0) {
+          if (sessionMaterial) {
+            setSelectedMaterial(sessionMaterial);
+            console.log('Using saved material:', sessionMaterial);
+          } else {
+            // Set default material if none selected
+            const defaultMaterial = materials[0].name;
+            setSelectedMaterial(defaultMaterial);
+            await AsyncStorage.setItem('selectedMaterial', defaultMaterial);
+            console.log('Set default material:', defaultMaterial);
+          }
         }
         
-        if (bits.length > 0 && !sessionBit) {
-          setRouter(bits[0].name);
-        } else if (bits.length > 0 && sessionBit) {
-          setRouter(sessionBit);
+        if (bits.length > 0) {
+          if (sessionBit) {
+            setSelectedBit(sessionBit);
+            console.log('Using saved bit:', sessionBit);
+          } else {
+            // Set default bit if none selected
+            const defaultBit = bits[0].name;
+            setSelectedBit(defaultBit);
+            await AsyncStorage.setItem('selectedBit', defaultBit);
+            console.log('Set default bit:', defaultBit);
+          }
         }
       } catch (err) {
         setError('Failed to load material and bit data');
@@ -94,11 +119,46 @@ export default function MaterialScreen() {
     loadData();
   }, []);
 
+  // Ensure default values are set when options are loaded
   useEffect(() => {
-    if (bitOptions.length > 0 && !router) {
-      setRouter(bitOptions[0].name);
+    if (materialOptions.length > 0 && !selectedMaterial) {
+      const defaultMaterial = materialOptions[0].name;
+      setSelectedMaterial(defaultMaterial);
+      AsyncStorage.setItem('selectedMaterial', defaultMaterial);
+      console.log('Auto-set default material:', defaultMaterial);
     }
-  }, [bitOptions, router]);
+  }, [materialOptions, selectedMaterial]);
+
+  useEffect(() => {
+    if (bitOptions.length > 0 && !selectedBit) {
+      const defaultBit = bitOptions[0].name;
+      setSelectedBit(defaultBit);
+      AsyncStorage.setItem('selectedBit', defaultBit);
+      console.log('Auto-set default bit:', defaultBit);
+    }
+  }, [bitOptions, selectedBit]);
+
+  // Additional safety check - ensure we always have default values
+  useEffect(() => {
+    if (materialOptions.length > 0 && bitOptions.length > 0) {
+      const hasMaterial = selectedMaterial && materialOptions.some(m => m.name === selectedMaterial);
+      const hasBit = selectedBit && bitOptions.some(b => b.name === selectedBit);
+      
+      if (!hasMaterial) {
+        const defaultMaterial = materialOptions[0].name;
+        setSelectedMaterial(defaultMaterial);
+        AsyncStorage.setItem('selectedMaterial', defaultMaterial);
+        console.log('Safety check: Set default material:', defaultMaterial);
+      }
+      
+      if (!hasBit) {
+        const defaultBit = bitOptions[0].name;
+        setSelectedBit(defaultBit);
+        AsyncStorage.setItem('selectedBit', defaultBit);
+        console.log('Safety check: Set default bit:', defaultBit);
+      }
+    }
+  }, [materialOptions, bitOptions, selectedMaterial, selectedBit]);
 
   const handleNext = async () => {
     try {
@@ -106,27 +166,54 @@ export default function MaterialScreen() {
       const selectedMachine = await AsyncStorage.getItem('selectedMachine');
       const selectedRouter = await AsyncStorage.getItem('selectedRouter');
       const remember = await AsyncStorage.getItem('rememberChoice');
-      const selectedMaterial = cncMachine;
-      const selectedBit = router;
+      const currentMaterial = selectedMaterial;
+      const currentBit = selectedBit;
       const token = await AsyncStorage.getItem('token');
       
       console.log('=== All Selected Values ===');
       console.log('Machine:', selectedMachine, typeof selectedMachine);
       console.log('Router/Spindle:', selectedRouter, typeof selectedRouter);
-      console.log('Material:', selectedMaterial, typeof selectedMaterial);
-      console.log('Bit:', selectedBit, typeof selectedBit);
+      console.log('Material:', currentMaterial, typeof currentMaterial);
+      console.log('Bit:', currentBit, typeof currentBit);
       console.log('Remember:', remember, typeof remember);
       console.log('========================');
 
+      // Ensure we have valid values, fallback to first available options if needed
+      let finalMaterial = currentMaterial;
+      let finalBit = currentBit;
+      
+      // If still no values, force set defaults
+      if (!finalMaterial && materialOptions.length > 0) {
+        finalMaterial = materialOptions[0].name;
+        setSelectedMaterial(finalMaterial);
+        await AsyncStorage.setItem('selectedMaterial', finalMaterial);
+        console.log('Force set default material in handleNext:', finalMaterial);
+      }
+      
+      if (!finalBit && bitOptions.length > 0) {
+        finalBit = bitOptions[0].name;
+        setSelectedBit(finalBit);
+        await AsyncStorage.setItem('selectedBit', finalBit);
+        console.log('Force set default bit in handleNext:', finalBit);
+      }
+      
       const requestBody = {
         machine: selectedMachine || '',
         spindle: selectedRouter || '',
-        bit: selectedBit || '',
-        material: selectedMaterial || '',
+        bit: finalBit,
+        material: finalMaterial,
         remember: remember === 'true'
       };
 
+      console.log('Final values being used - Material:', finalMaterial, 'Bit:', finalBit);
       console.log('Request body before stringify:', requestBody);
+      
+      // Final validation - ensure we have all required values
+      if (!finalMaterial || !finalBit) {
+        console.error('Missing required values - Material:', finalMaterial, 'Bit:', finalBit);
+        showError('Please select both material and bit before proceeding.');
+        return;
+      }
       
       let requestBodyString;
       try {
@@ -152,16 +239,13 @@ export default function MaterialScreen() {
         const data = await response.json();
         console.log('API Response:', data);
         
-        // Check if user has made any adjustments to the multiplier
-        const currentMultiplier = await AsyncStorage.getItem('multiplier');
-        if (currentMultiplier && parseFloat(currentMultiplier) !== data.multiplier) {
-          // User has made adjustments, keep their custom multiplier
-          console.log('Keeping user-adjusted multiplier:', currentMultiplier);
-        } else {
-          // Use the API response multiplier as the base value
-          await AsyncStorage.setItem('multiplier', data.multiplier.toString());
-          console.log('Using API response multiplier:', data.multiplier);
-        }
+        // Always use the fresh API multiplier - don't preserve old user adjustments
+        // This ensures fresh data is always used
+        console.log('Using fresh API multiplier:', data.multiplier);
+        await AsyncStorage.setItem('multiplier', data.multiplier.toString());
+        
+        // Clear any old stored settings to prevent conflicts
+        await AsyncStorage.removeItem('setting');
         
         await AsyncStorage.setItem('setting', JSON.stringify(data));
         await AsyncStorage.setItem('warning', data.warning || '');
@@ -172,48 +256,35 @@ export default function MaterialScreen() {
         router_nav.push('/(tabs)/results');
       } else {
         console.error('API request failed:', response.status, response.statusText);
-        Alert.alert('Error', `Failed to save settings. Error: ${response.status} ${response.statusText}`);
+        showError(`Failed to save settings. Error: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error making API request:', error);
-      Alert.alert('Error', 'An error occurred while processing your request.');
+      showError('An error occurred while processing your request.');
     }
   };
 
-  const renderMaterialOption = ({ item }: { item: MachineOption }) => (
-    <TouchableOpacity 
-      style={styles.modalOption} 
-      onPress={async () => {
-        setCncMachine(item.name);
-        await AsyncStorage.setItem('selectedMaterial', item.name);
-        setIsMaterialModalVisible(false);
-      }}
-    >
-      <Text style={styles.modalOptionText}>{item.name}</Text>
-    </TouchableOpacity>
-  );
-
-  const renderBitOption = ({ item }: { item: MachineOption }) => (
-    <TouchableOpacity 
-      style={styles.modalOption} 
-      onPress={async () => {
-        setRouter(item.name);
-        await AsyncStorage.setItem('selectedBit', item.name);
-        setIsBitModalVisible(false);
-        setBitSearch("");
-      }}
-    >
-      <Text style={styles.modalOptionText}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+  const closeAllDropdowns = () => {
+    setIsMaterialModalVisible(false);
+    setIsBitModalVisible(false);
+  };
 
   const filteredBitOptions = bitOptions.filter((option) =>
     option.name.toLowerCase().includes(bitSearch.toLowerCase())
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Logo width={180} height={70} style={styles.logo} />
+    <ScrollView contentContainerStyle={[
+      styles.container,
+      { paddingBottom: Math.max(24, insets.bottom + 24), paddingTop: 100 }
+    ]}>
+      {/* Touchable area to close dropdowns when tapping outside */}
+      
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -222,67 +293,96 @@ export default function MaterialScreen() {
         </View>
       )}
 
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      <Text style={styles.subtitle}>What material are you using?</Text>
-      <TouchableOpacity 
-        style={styles.dropdown} 
-        onPress={() => {
-          setIsBitModalVisible(false);
-          setIsMaterialModalVisible(true);
-        }}
-        disabled={isLoading}
-      >
-        <Text style={styles.dropdownText}>{cncMachine || "Select a material"}</Text>
-        <Feather name="chevron-down" size={24} color="#44C09E" />
-      </TouchableOpacity>
-
-      <Text style={styles.subtitle}>What bit are you using?</Text>
-      <TouchableOpacity 
-        style={styles.dropdown} 
-        onPress={() => {
-          setIsMaterialModalVisible(false);
-          setIsBitModalVisible(true);
-        }}
-        disabled={isLoading}
-      >
-        <Text style={styles.dropdownText}>{router || "Select a bit"}</Text>
-        <Feather name="chevron-down" size={24} color="#44C09E" />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-        <Text style={styles.nextButtonText}>Next</Text>
-      </TouchableOpacity>
-
-      {/* Material Modal */}
-      <Modal
-        transparent={true}
-        visible={isMaterialModalVisible}
-        onRequestClose={() => setIsMaterialModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <FlatList
-              data={materialOptions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderMaterialOption}
+      <View style={styles.inputSection}>
+        <Text style={styles.subtitle}>What material are you using?</Text>
+        <TouchableOpacity 
+          style={styles.dropdown} 
+          onPress={() => {
+            if (isMaterialModalVisible) {
+              // If material dropdown is already open, close it
+              setIsMaterialModalVisible(false);
+            } else {
+              // Close bit dropdown and open material dropdown
+              setIsBitModalVisible(false);
+              setIsMaterialModalVisible(true);
+            }
+          }}
+        >
+          <Text style={styles.dropdownText}>{selectedMaterial || "Select a material"}</Text>
+          <View style={styles.chevronContainer}>
+            <Feather 
+              name="chevron-down" 
+              size={20} 
+              color="white" 
+              style={[
+                styles.chevron,
+                isMaterialModalVisible && styles.chevronRotated
+              ]}
             />
           </View>
-        </View>
-      </Modal>
+        </TouchableOpacity>
 
-      {/* Bit Modal */}
-      <Modal
-        transparent={true}
-        visible={isBitModalVisible}
-        onRequestClose={() => setIsBitModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
+        {/* Material Dropdown */}
+        {isMaterialModalVisible && (
+          <View style={[styles.dropdownList, styles.materialDropdownList]}>
+            <ScrollView 
+              style={styles.dropdownScrollView}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={false}
+            >
+              {materialOptions.map((item) => (
+                <TouchableOpacity 
+                  key={item.id}
+                  style={styles.modalOption} 
+                  onPress={async () => {
+                    setSelectedMaterial(item.name);
+                    await AsyncStorage.setItem('selectedMaterial', item.name);
+                    setIsMaterialModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item.name}</Text>
+                  {selectedMaterial === item.name && (
+                    <View style={styles.selectedIndicator} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.inputSection}>
+        <Text style={styles.subtitle}>What bit are you using?</Text>
+        <TouchableOpacity 
+          style={styles.dropdown} 
+          onPress={() => {
+            if (isBitModalVisible) {
+              // If bit dropdown is already open, close it
+              setIsBitModalVisible(false);
+            } else {
+              // Close material dropdown and open bit dropdown
+              setIsMaterialModalVisible(false);
+              setIsBitModalVisible(true);
+            }
+          }}
+        >
+          <Text style={styles.dropdownText}>{selectedBit || "Select a bit"}</Text>
+          <View style={styles.chevronContainer}>
+            <Feather 
+              name="chevron-down" 
+              size={20} 
+              color="white" 
+              style={[
+                styles.chevron,
+                isBitModalVisible && styles.chevronRotated
+              ]}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Bit Dropdown */}
+        {isBitModalVisible && (
+          <View style={[styles.dropdownList, styles.bitDropdownList]}>
             {/* Search Bar */}
             <View style={styles.searchContainer}>
               <TextInput
@@ -294,21 +394,62 @@ export default function MaterialScreen() {
               />
             </View>
             
-            <FlatList
-              data={filteredBitOptions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderBitOption}
-              ListEmptyComponent={
-                bitSearch ? (
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No bits found matching "{bitSearch}"</Text>
-                  </View>
-                ) : null
-              }
-            />
+            <ScrollView 
+              style={styles.dropdownScrollView}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={false}
+            >
+              {filteredBitOptions.map((item) => (
+                <TouchableOpacity 
+                  key={item.id}
+                  style={styles.modalOption} 
+                  onPress={async () => {
+                    setSelectedBit(item.name);
+                    await AsyncStorage.setItem('selectedBit', item.name);
+                    setIsBitModalVisible(false);
+                    setBitSearch("");
+                  }}
+                >
+                  <Text style={styles.modalOptionText}>{item.name}</Text>
+                  {selectedBit === item.name && (
+                    <View style={styles.selectedIndicator} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              {bitSearch && filteredBitOptions.length === 0 && (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No bits found matching &quot;{bitSearch}&quot;</Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
-        </View>
-      </Modal>
+        )}
+      </View>
+
+      <TouchableOpacity 
+        style={[
+          styles.nextButton, 
+          (!selectedMaterial || !selectedBit) && styles.nextButtonDisabled
+        ]} 
+        onPress={handleNext}
+        disabled={!selectedMaterial || !selectedBit}
+      >
+        <Text style={[
+          styles.nextButtonText,
+          (!selectedMaterial || !selectedBit) && styles.nextButtonTextDisabled
+        ]}>
+          {!selectedMaterial || !selectedBit ? 'Please select material and bit' : 'Next'}
+        </Text>
+      </TouchableOpacity>
+      <ReportIssueButton />
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onHide={hideToast}
+      />
     </ScrollView>
   );
 }
@@ -352,49 +493,47 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignSelf: 'flex-start',
     width: '100%',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   dropdown: {
     width: '100%',
     height: 48,
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderRadius: 2,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    position: 'relative', // Added for proper dropdown positioning
   },
   dropdownText: {
     fontSize: 16,
     color: 'black',
   },
   nextButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#44C09E',
-    borderRadius: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Math.max(20, Dimensions.get('window').width * 0.06), // 6% of screen width, minimum 20
+    paddingVertical: Math.max(8, Dimensions.get('window').height * 0.01), // 1% of screen height, minimum 8
+    backgroundColor: '#D1D1D1',
+    borderRadius: Math.max(6, Dimensions.get('window').width * 0.015), // 1.5% of screen width, minimum 6
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 4,
+    marginBottom: Math.max(20, Dimensions.get('window').height * 0.025), // 2.5% of screen height, minimum 20
   },
   nextButtonText: {
-    color: 'white',
-    fontSize: 18,
+    color: '#004146',
+    fontSize: Math.max(14, Dimensions.get('window').width * 0.04), // 4% of screen width, minimum 14
     fontWeight: 'bold',
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  nextButtonDisabled: {
+    backgroundColor: '#888',
+    opacity: 0.6,
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    width: '80%',
-    maxHeight: '60%',
+  nextButtonTextDisabled: {
+    color: '#666',
   },
+
   searchContainer: {
     padding: 12,
     borderBottomWidth: 1,
@@ -404,18 +543,24 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 6,
+    borderRadius: 2,
     paddingHorizontal: 12,
     fontSize: 16,
   },
   modalOption: {
-    padding: 20,
+    padding: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   modalOptionText: {
-    fontSize: 18,
-    textAlign: 'center',
+    fontSize: 14,
+    color: 'black',
+    fontWeight: 'bold',
+    textAlign: 'left',
   },
   emptyContainer: {
     padding: 20,
@@ -425,5 +570,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
     textAlign: 'center',
+  },
+  chevronContainer: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#03BFB5',
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedIndicator: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#03BFB5',
+    borderRadius: 4,
+  },
+  dropdownList: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    width: '100%',
+    maxHeight: 300,
+    borderWidth: 2, // Increased border width to match index.tsx
+    borderColor: '#03BFB5', // Changed border color to match index.tsx
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25, // Increased shadow opacity to match index.tsx
+    shadowRadius: 4,
+    elevation: 5, // Increased elevation to match index.tsx
+    position: 'absolute', // Added absolute positioning
+    top: '100%', // Position below the dropdown
+    left: 0,
+    right: 0,
+    marginTop: 2, // Added marginTop to match index.tsx
+  },
+  dropdownScrollView: {
+    flex: 1,
+  },
+  materialDropdownList: {
+    position: 'absolute',
+    top: '100%', // Position below the dropdown
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  bitDropdownList: {
+    position: 'absolute',
+    top: '100%', // Position below the dropdown
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  inputSection: {
+    width: '100%',
+    marginBottom: Math.max(20, Dimensions.get('window').height * 0.025),
+    position: 'relative', // Added for proper dropdown positioning
+  },
+  chevron: {
+    // React Native doesn't support CSS transitions
+  },
+  chevronRotated: {
+    transform: [{ rotate: '180deg' }],
   },
 }); 

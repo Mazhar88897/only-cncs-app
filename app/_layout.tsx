@@ -5,6 +5,7 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -33,10 +34,12 @@ export default function Layout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider theme={theme}>
-        <Slot />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider theme={theme}>
+          <Slot />
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

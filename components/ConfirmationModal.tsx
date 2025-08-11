@@ -1,11 +1,11 @@
 import React from 'react';
 import {
+  Dimensions,
   Modal,
-  View,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Dimensions,
+  View,
 } from 'react-native';
 
 interface ConfirmationModalProps {
@@ -36,6 +36,9 @@ export default function ConfirmationModal({
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>×</Text>
+          </TouchableOpacity>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           
@@ -64,23 +67,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#004851',
     borderWidth: 4,
     borderColor: '#03BFB5',
-    borderRadius: 12,
+    borderRadius: 2,
     padding: 24,
     minWidth: 300,
     maxWidth: width - 48,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#03BFB5',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   title: {
     color: '#03BFB5',
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   message: {
     color: 'white',
     fontSize: 16,
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 22,
   },
   buttonContainer: {
@@ -90,10 +108,11 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#666',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: 'white',
     alignItems: 'center',
   },
   cancelButtonText: {
@@ -106,11 +125,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#03BFB5',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 2,
     alignItems: 'center',
   },
   confirmButtonText: {
-    color: '#004851',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },

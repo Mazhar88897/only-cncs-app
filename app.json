@@ -1,43 +1,46 @@
 {
   "expo": {
-    "name": "only-cncs-app",
+    "name": "OnlyCNCs",
     "slug": "only-cncs-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/adapt.png",
+    "icon": "./assets/images/adaptive-icon.png",
     "scheme": "onlycncsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "icon": "./assets/images/ios.png",
-      "resizeMode": "contain",
+      "icon": "./assets/images/adaptive-icon.png",
       "backgroundColor": "#004146"
     },
     "android": {
+      "icon": "./assets/images/adaptive-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "assets/images/adapt.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#004146"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.tahadevv.onlycncsapp"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/adapt.png"
+      "favicon": "./assets/images/logo.png"
     },
-  
     "experiments": {
       "typedRoutes": true
     },
     "splash": {
       "image": "./assets/images/logo.png",
-      "resizeMode": "contain",
       "backgroundColor": "#004146",
       "dark": {
         "image": "./assets/images/logo.png",
-        "resizeMode": "contain",
         "backgroundColor": "#004146"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4e769b2b-234c-4623-9d9e-cbb4603707d2"
       }
     }
   }
